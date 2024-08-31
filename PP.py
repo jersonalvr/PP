@@ -1,16 +1,20 @@
+import folium
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import streamlit as st
-import folium
-from streamlit_folium import folium_static
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
 import plotly.express as px
 import plotly.graph_objects as go
+import seaborn as sns
+import streamlit as st
+
+from imblearn.over_sampling import SMOTE
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from streamlit_folium import folium_static
 
 # Título y descripción de la aplicación
 st.title('Modelo de Random Forest para Pesca Artesanal en Coishco')
@@ -311,16 +315,16 @@ st.plotly_chart(fig)
 df['Inicio_Faena'] = pd.to_datetime(df['Inicio_Faena'], format='%d %m %Y %H:%M')
 df['Inicio_Venta'] = pd.to_datetime(df['Inicio_Venta'], format='%d %m %Y %H:%M')
 
-# Agregar una nueva columna 'Hora_Faena' y 'Hora_Venta' con solo la hora de 'Inicio_Faena' y 'Fecha_Venta'
-df['Hora_Faena'] = df['Inicio_Faena'].dt.time
-df['Hora_Venta'] = df['Inicio_Venta'].dt.time
+# Transformar las columnas 'Inicio_Faena' y 'Inicio_Venta' en valores flotantes (hora + minutos/60)
+df['HFloat_Faena'] = df['Inicio_Faena'].dt.hour + df['Inicio_Faena'].dt.minute / 60
+df['HFloat_Venta'] = df['Inicio_Venta'].dt.hour + df['Inicio_Venta'].dt.minute / 60
 
-# Transformar la columna 'Hora_Faena' y 'Hora_Venta' en un valor flotante (hora + minutos/60)
-df['HFloat_Faena'] = df['Hora_Faena'].apply(lambda x: x.hour + x.minute/60)
-df['HFloat_Venta'] = df['Hora_Venta'].apply(lambda x: x.hour + x.minute/60)
+# Extraer el mes de las columnas 'Inicio_Faena' y 'Inicio_Venta'
+df['Mes_Faena'] = df['Inicio_Faena'].dt.month
+df['Mes_Venta'] = df['Inicio_Venta'].dt.month
 
-# Crear un nuevo DataFrame eliminando las columnas 'Inicio_Faena', 'Inicio_Venta', 'Hora_Faena' y 'Hora_Venta'
-df_ = df.drop(columns=['Inicio_Faena', 'Inicio_Venta', 'Hora_Faena', 'Hora_Venta'])
+# Crear un nuevo DataFrame eliminando las columnas innecesarias
+df_ = df.drop(columns=['Inicio_Faena', 'Inicio_Venta'])
 
 # Crear una tabla de frecuencias ponderada
 hist_data = df_.groupby('HFloat_Faena').apply(lambda x: (x['Volumen_Kg'] * len(x)).sum())
@@ -345,7 +349,7 @@ ax.set_title('Distribución de las Ventas por Hora del Día')
 st.pyplot(fig)
 
 # Seleccionamos las columnas numéricas
-numeric_columns = df_.select_dtypes(include=['int64', 'float64']).columns
+numeric_columns = df_.select_dtypes(include=['int64', 'float64', 'int32']).columns
 
 # Crear el escalador
 scaler = MinMaxScaler()
@@ -363,7 +367,7 @@ st.subheader('Matriz de Correlación')
 # Seleccionar las columnas para la matriz de correlación
 selected_columns = ['Caballos_Motor', 'Millas_Recorridas', 'Volumen_Kg', 'Precio_Kg', 
                     'Talla_cm', 'Venta', 'Costo_Combustible', 'Ganancia', 
-                    'HFloat_Faena', 'HFloat_Venta', 'Origen_Latitud', 'Origen_Longuitud']
+                    'HFloat_Faena', 'HFloat_Venta', 'Origen_Latitud', 'Origen_Longuitud', 'Mes_Faena', 'Mes_Venta']
 
 # Calcular la matriz de correlación
 correlation_matrix = df_normalized[selected_columns].corr()
@@ -483,6 +487,10 @@ if X is not None and y is not None:
         indices = X_train.columns
         feature_importances = pd.Series(importances, index=indices).sort_values(ascending=False)
         
+        # Mostrar la característica más influyente
+        caracteristica_principal = feature_importances.idxmax()
+        st.markdown(f"**La característica más influyente es:** `{caracteristica_principal}`, lo que indica que esta variable tiene el mayor impacto en la predicción del volumen de captura.")
+
         if 'Ganancia' in feature_importances.index:
             feature_importances = feature_importances.drop('Ganancia')
 
