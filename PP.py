@@ -315,11 +315,51 @@ df['Inicio_Venta'] = pd.to_datetime(df['Inicio_Venta'], format='%d %m %Y %H:%M')
 df['HFloat_Faena'] = df['Inicio_Faena'].dt.hour + df['Inicio_Faena'].dt.minute / 60
 df['HFloat_Venta'] = df['Inicio_Venta'].dt.hour + df['Inicio_Venta'].dt.minute / 60
 
+# Función para categorizar la hora en intervalos de 2 horas considerando A.M. y P.M.
+def categorize_hour(hour):
+    period = "A.M." if hour < 12 else "P.M."
+    hour_12 = hour % 12
+    hour_12 = 12 if hour_12 == 0 else hour_12
+    start_hour = hour_12
+    end_hour = (hour_12 + 2) % 12
+    end_hour = 12 if end_hour == 0 else end_hour
+    return f"{start_hour:02d} - {end_hour:02d} {period}"
+
+# Aplicar la función para categorizar las horas en 'Inicio_Faena' y 'Inicio_Venta'
+df['Hora_Faena'] = df['Inicio_Faena'].dt.hour.apply(categorize_hour)
+
 # Extraer el mes de las columnas 'Inicio_Faena' y 'Inicio_Venta'
 df['Mes_Faena'] = df['Inicio_Faena'].dt.month
-df['Mes_Venta'] = df['Inicio_Venta'].dt.month
 
-# Crear un nuevo DataFrame eliminando las columnas innecesarias
+# Crear un diccionario para mapear los números de los meses a nombres abreviados
+meses = {
+    1: 'ENE', 2: 'FEB', 3: 'MAR', 4: 'ABR', 5: 'MAY', 6: 'JUN',
+    7: 'JUL', 8: 'AGO', 9: 'SEP', 10: 'OCT', 11: 'NOV', 12: 'DIC'
+}
+
+# Crear una nueva columna 'Mes_Faena' basada en el mes de 'Inicio_Faena' y usar el diccionario de mapeo
+df['Mes_Float'] = df['Inicio_Faena'].dt.month.map(meses)
+
+# Definir los límites de los rangos
+bins_precio = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+# Definir las etiquetas correspondientes para cada rango
+labels_precio = ["S/ (0 - 5)", "S/ (5 - 10)", "S/ (10 - 15)", "S/ (15 - 20)", "S/ (20 - 25)",
+          "S/ (25 - 30)", "S/ (30 - 35)", "S/ (35 - 40)", "S/ (40 - 45)", "S/ (45 - 50)", "S/ (50 - 55)"]
+
+# Crear la nueva columna 'Precio_Float'
+df['Precio_Float'] = pd.cut(df['Precio_Kg'], bins=bins_precio, labels=labels_precio, right=False)
+
+# Definir los límites de los rangos
+bins_talla = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
+# Definir las etiquetas correspondientes para cada rango
+labels_talla = ["(10 - 20) cm", "(20 - 30) cm", "(30 - 40) cm", "(40 - 50) cm",
+                "(50 - 60) cm", "(60 - 70) cm", "(70 - 80) cm", "(80 - 90) cm", "(90 - 100) cm",
+                "(100 - 110) cm", "(110 - 120) cm", "(120 - 130) cm", "(130 - 140) cm", "(140 - 150) cm"]
+
+# Crear la nueva columna 'Talla_Float'
+df['Talla_Float'] = pd.cut(df['Talla_cm'], bins=bins_talla, labels=labels_talla, right=False)
+
+# Crear un nuevo DataFrame eliminando las columnas datatime
 df_ = df.drop(columns=['Inicio_Faena', 'Inicio_Venta'])
 
 # Crear una tabla de frecuencias ponderada
@@ -363,7 +403,7 @@ st.subheader('Matriz de Correlación')
 # Seleccionar las columnas para la matriz de correlación
 selected_columns = ['Caballos_Motor', 'Millas_Recorridas', 'Volumen_Kg', 'Precio_Kg', 
                     'Talla_cm', 'Venta', 'Costo_Combustible', 'Ganancia', 
-                    'HFloat_Faena', 'HFloat_Venta', 'Origen_Latitud', 'Origen_Longuitud', 'Mes_Faena', 'Mes_Venta']
+                    'HFloat_Faena', 'HFloat_Venta', 'Origen_Latitud', 'Origen_Longuitud', 'Mes_Faena']
 
 # Calcular la matriz de correlación
 correlation_matrix = df_normalized[selected_columns].corr()
@@ -424,8 +464,8 @@ def procesar_datos(df, seleccion, es_embarcacion=True):
         st.error(f"No se encontraron datos para la {'embarcación' if es_embarcacion else 'especie'}: {seleccion}")
         return None, None
     
-    df_seleccion = pd.get_dummies(df_seleccion, columns=['Marca_Motor', 'Modelo_Motor', 'Aparejo'], drop_first=True)
-    X = df_seleccion.drop(columns=['Embarcacion', 'Especie', 'Volumen_Kg', 'Talla_cm', 'Precio_Kg', 'Venta', 'Ganancia'])
+    df_seleccion = pd.get_dummies(df_seleccion, columns=['Modelo_Motor', 'Origen', 'Aparejo', 'Hora_Faena', 'Precio_Float', 'Talla_Float', 'Mes_Float'], drop_first=True)
+    X = df_seleccion.drop(columns=['Embarcacion', 'Especie', 'Volumen_Kg', 'Talla_cm', 'Precio_Kg', 'Venta', 'Ganancia', 'Origen_Latitud', 'Origen_Longuitud', 'HFloat_Venta', 'HFloat_Faena', 'Mes_Faena', 'Marca_Motor'])
     y = df_seleccion['Volumen_Kg'].fillna(0)
     
     return X.apply(pd.to_numeric, errors='coerce').fillna(0), y
@@ -487,8 +527,8 @@ if X is not None and y is not None:
         caracteristica_principal = feature_importances.idxmax()
         st.markdown(f"**La característica más influyente es:** `{caracteristica_principal}`, lo que indica que esta variable tiene el mayor impacto en la predicción del volumen de captura.")
 
-        if 'Ganancia' in feature_importances.index:
-            feature_importances = feature_importances.drop('Ganancia')
+        if 'Hora_Venta' in feature_importances.index:
+            feature_importances = feature_importances.drop('Hora_Venta')
 
         fig = go.Figure()
 
