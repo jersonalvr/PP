@@ -61,7 +61,7 @@ def display():
         fig.update_layout(yaxis_title='Kilos (Logarítmico)', xaxis_title='Especie', xaxis_tickangle=-45)
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Agrupar los datos por 'Especie' y sumar las ganancias
     ventas_por_especie = df.groupby('Especie')['Ganancia'].sum().sort_values()
@@ -95,7 +95,7 @@ def display():
         fig.update_layout(xaxis_title='Especie', yaxis_title='Ganancia (Suma Total) (Logarítmica)', xaxis_tickangle=-45)
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Selección de la especie
     especie_seleccionada = st.selectbox('Selecciona la especie', df['Especie'].unique())
@@ -201,7 +201,7 @@ def display():
                     bargap=0.1)
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
 
     # --- Gráfico para Talla en cm ponderada por Volumen ---
@@ -228,7 +228,7 @@ def display():
                     bargap=0.1)
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
 
     # --- Gráfico para Millas Recorridas ponderada por Volumen ---
@@ -255,7 +255,7 @@ def display():
                     bargap=0.1)
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Agrupar por Marca de Motor y Caballos de fuerza, sumando los kilos
     df_agrupado = df.groupby(['Marca_Motor', 'Caballos_Motor'])['Volumen_Kg'].sum().unstack()
@@ -292,7 +292,7 @@ def display():
         fig.update_layout(xaxis_title='Motor', yaxis_title='Kilos (Logarítmico)', xaxis_tickangle=-45)
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Agrupar los datos
     ventas_por_embarcacion = df.groupby('Embarcacion')['Ganancia'].sum()
@@ -362,7 +362,7 @@ def display():
         fig.update_layout(xaxis_title='Embarcación', yaxis_title='Valores', xaxis_tickangle=-45)
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Agrupar las ganancias por fecha de faena
     df_agrupado = df.groupby('Inicio_Faena')['Ganancia'].sum().reset_index()
@@ -380,7 +380,7 @@ def display():
     fig.update_layout(xaxis_title='Fecha de Faena', yaxis_title='Ganancia', xaxis_tickformat='%Y-%m-%d')
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Agrupar las ganancias por fecha de faena
     df_agrupado = df.groupby('Inicio_Faena')['Costo_Combustible'].sum().reset_index()
@@ -398,7 +398,7 @@ def display():
     fig.update_layout(xaxis_title='Fecha de Faena', yaxis_title='Costo Combustible', xaxis_tickformat='%Y-%m-%d')
 
     # Mostrar el gráfico en Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Convertir la columna 'Inicio_Faena' y 'Fecha_Venta' a datetime
     df['Inicio_Faena'] = pd.to_datetime(df['Inicio_Faena'], format='%d %m %Y %H:%M')
@@ -489,7 +489,7 @@ def display():
     # Generar y mostrar gráficos
     for var in selected_var:
         fig = generar_grafico(var, plot_type, scale_option)
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, use_container_width=True)
 
     # Gráficos de Tendencia
     st.write("### Gráficos de Tendencia")
@@ -503,7 +503,7 @@ def display():
 
     # Crear gráfico de tendencia
     fig_trend = px.line(df_sorted, x='Inicio_Faena', y=trend_var, title=f'Tendencia de {trend_var} a lo largo del tiempo')
-    st.plotly_chart(fig_trend)
+    st.plotly_chart(fig_trend, use_container_width=True)
 
     # Gráfico de Dispersión Interactivo
     st.write("### Gráfico de Dispersión Interactivo")
@@ -528,7 +528,7 @@ def display():
                                 hover_data=['Especie', 'Embarcacion'])
 
     # Mostrar el gráfico
-    st.plotly_chart(fig_scatter)
+    st.plotly_chart(fig_scatter, use_container_width=True)
 
     # Crear la nueva columna 'Talla_Float'
     df['Talla_Float'] = pd.cut(df['Talla_cm'], bins=bins_talla, labels=labels_talla, right=False)
@@ -591,7 +591,7 @@ def display():
     )
 
     # Mostrar el gráfico interactivo en Streamlit
-    st.plotly_chart(fig_faenas)
+    st.plotly_chart(fig_faenas, use_container_width=True)
 
     # --- Distribución de las ventas ---
     st.subheader('Distribución de las Ventas por Hora del Día')
@@ -631,7 +631,7 @@ def display():
     )
 
     # Mostrar el gráfico interactivo en Streamlit
-    st.plotly_chart(fig_ventas)
+    st.plotly_chart(fig_ventas, use_container_width=True)
 
     # Matriz de Correlación
     st.write("### Matriz de Correlación entre Variables")
@@ -654,7 +654,7 @@ def display():
                             aspect="auto",
                             color_continuous_scale='RdBu_r',
                             title='Matriz de Correlación de Pearson')
-        st.plotly_chart(fig_corr)
+        st.plotly_chart(fig_corr, use_container_width=True)
         
         # Opcional: Descargar la matriz de correlación
         csv_corr = corr_matrix.to_csv(index=True).encode('utf-8')
