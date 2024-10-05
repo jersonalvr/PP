@@ -4,19 +4,31 @@ import pandas as pd
 import plotly.express as px
 import seaborn as sns
 import folium
+import numpy as np
+from folium.plugins import MarkerCluster
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from streamlit_folium import folium_static
 
 def display():
+    # Configuración de la página
     st.markdown("<h2 style='text-align: center;'>Página de análisis exploratorio de datos (EDA)</h2>", unsafe_allow_html=True)
     st.markdown("---")
     if 'subpagina_eda' not in st.session_state:
         st.markdown("<h4 style='text-align: center;'>En esta sección de nuestro proyecto, te ofrecemos la oportunidad de explorar un análisis detallado de los datos a través de diversos gráficos y visualizaciones. Este espacio está diseñado para que puedas entender mejor y analizar de forma intuitiva la información que hemos recopilado.</h4>", unsafe_allow_html=True)
-        st.image('resources/EDA.jpg')
+        # Crear tres columnas, la del medio contendrá la imagen
+        col1, col2, col3 = st.columns([1,2,1])
+        
+        # Mostrar la imagen en la columna del medio
+        with col2:
+            st.image('resources/EDA.jpg')
 
     # Cargar los datos
-    df = pd.read_excel('data/data.xlsx')
+    @st.cache_data  # Cachear los datos para mejorar el rendimiento
+    def cargar_datos(ruta):
+        return pd.read_excel(ruta)
+
+    df = cargar_datos('data/data.xlsx')
 
     st.write("""
     Comencemos visualizando algunos gráficos estadisticos referentes a la actividad pesquera de la zona
@@ -91,30 +103,97 @@ def display():
     # Filtrar los datos según la especie seleccionada
     df_filtrado = df[df['Especie'] == especie_seleccionada]
 
-    # Crear el gráfico de barras utilizando matplotlib
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # Crear dos columnas para centrar el mapa
+    col1, col2, col3 = st.columns([1, 2, 1])  # Distribución de ancho: 1/4, 2/4, 1/4
 
-    # Crear el mapa centrado en la ubicación media
-    mapa = folium.Map(location=[df_filtrado['Origen_Latitud'].mean(), df_filtrado['Origen_Longuitud'].mean()], zoom_start=6)
+    with col1:
+        st.write("")  # Espacio vacío para centrar
 
-    # Añadir marcadores al mapa
-    for idx, row in df_filtrado.iterrows():
-        folium.Marker(
-            location=[row['Origen_Latitud'], row['Origen_Longuitud']],
-            popup=row['Origen']
-        ).add_to(mapa)
+    with col2:
+        if not df_filtrado.empty:
+            # Calcular la media de latitud y longitud para centrar el mapa
+            media_lat = df_filtrado['Origen_Latitud'].mean()
+            media_lon = df_filtrado['Origen_Longuitud'].mean()  # Asegúrate de que el nombre de la columna es correcto
 
-    # Mostrar el mapa en Streamlit
-    folium_static(mapa)
+            # Crear el mapa centrado en la ubicación media
+            mapa = folium.Map(location=[media_lat, media_lon], zoom_start=6)
 
-    # Título de la aplicación
-    st.title('Distribución de Precio por Kg ponderada por Volumen en Kg')
+            # Opcional: Usar MarkerCluster para mejorar la visualización con muchos marcadores
+            marker_cluster = MarkerCluster().add_to(mapa)
 
-    # Crear el histograma ponderado
+            # Añadir marcadores al cluster
+            for idx, row in df_filtrado.iterrows():
+                folium.Marker(
+                    location=[row['Origen_Latitud'], row['Origen_Longuitud']],
+                    popup=row['Origen']
+                ).add_to(marker_cluster)
+
+            # Mostrar el mapa en Streamlit
+            folium_static(mapa, width=700, height=500)  # Ajusta el tamaño según tus necesidades
+        else:
+            st.warning("No se encontraron datos para la especie seleccionada.")
+
+    with col3:
+        st.write("")  # Espacio vacío para centrar
+
+    precio_kg = df['Precio_Kg']
+    talla_cm = df['Talla_cm']
+    millas_recorridas = df['Millas_Recorridas']
+
+    # Función para calcular el número óptimo de bins
+    def calcular_bins(data, metodo):
+        n = len(data)
+        
+        if metodo == "Sturges":
+            return int(np.ceil(np.log2(n) + 1))
+        
+        elif metodo == "Freedman-Diaconis":
+            q75, q25 = np.percentile(data, [75 ,25])
+            iqr = q75 - q25
+            bin_width_fd = 2 * iqr / np.cbrt(n)
+            return int(np.ceil((data.max() - data.min()) / bin_width_fd))
+
+    # Radio button para seleccionar el método de bins
+    metodo = st.radio(
+        "Selecciona el método para calcular el número de bins:",
+        ("Sturges", "Freedman-Diaconis")
+    )
+
+    # Mostrar la fórmula dependiendo del método seleccionado
+    if metodo == "Sturges":
+        st.latex(r'''
+            \text{Número de bins} = \lceil \log_2(n) + 1 \rceil
+        ''')
+    elif metodo == "Freedman-Diaconis":
+        st.latex(r'''
+            \text{Tamaño del bin} = \frac{2 \times IQR}{n^{1/3}}
+        ''')
+
+    # Calcular el número óptimo de bins para Precio_Kg
+    optimo_bins_precio = calcular_bins(precio_kg, metodo)
+
+    # Calcular el número óptimo de bins para Talla_cm
+    optimo_bins_talla = calcular_bins(talla_cm, metodo)
+
+    # Calcular el número óptimo de bins para Millas_Recorridas
+    optimo_bins_millas = calcular_bins(millas_recorridas, metodo)
+
+
+    # --- Gráfico para Precio por Kg ponderada por Volumen ---
+
+    # Crear el histograma ponderado con el número óptimo de bins
     fig = px.histogram(df, x='Precio_Kg', y='Volumen_Kg', 
                     histfunc='sum', 
-                    nbins=24, 
+                    nbins=optimo_bins_precio,  # Usamos el número óptimo de bins
                     title='Distribución de Precio por Kg ponderada por Volumen en Kg')
+
+    # Ajustar manualmente el inicio del bin
+    bin_size_precio = (df['Precio_Kg'].max() - 0.5) / optimo_bins_precio  # Tamaño del bin según el número óptimo
+    fig.update_traces(xbins=dict(
+        start=0.5,  # Inicia desde 0.5
+        end=df['Precio_Kg'].max(),  # Termina en el valor máximo de Precio_Kg
+        size=bin_size_precio  # Tamaño del bin ajustado
+    ))
 
     # Actualizar etiquetas del gráfico
     fig.update_layout(xaxis_title='Precio por Kg', 
@@ -124,14 +203,24 @@ def display():
     # Mostrar el gráfico en Streamlit
     st.plotly_chart(fig)
 
-    # Título de la aplicación
+
+    # --- Gráfico para Talla en cm ponderada por Volumen ---
+
     st.title('Distribución de Precio por Kg ponderada por Talla en cm')
 
-    # Crear el histograma ponderado
+    # Crear el histograma ponderado con el número óptimo de bins
     fig = px.histogram(df, x='Talla_cm', y='Volumen_Kg', 
                     histfunc='sum', 
-                    nbins=24, 
+                    nbins=optimo_bins_talla,  # Usamos el número óptimo de bins
                     title='Distribución de Precio por Kg ponderada por Talla en cm')
+
+    # Ajustar manualmente el inicio del bin
+    bin_size_talla = (df['Talla_cm'].max() - df['Talla_cm'].min()) / optimo_bins_talla
+    fig.update_traces(xbins=dict(
+        start=df['Talla_cm'].min(),  # Inicia desde el valor mínimo de Talla
+        end=df['Talla_cm'].max(),  # Termina en el valor máximo de Talla
+        size=bin_size_talla  # Tamaño del bin ajustado
+    ))
 
     # Actualizar etiquetas del gráfico
     fig.update_layout(xaxis_title='Talla en cm', 
@@ -141,14 +230,24 @@ def display():
     # Mostrar el gráfico en Streamlit
     st.plotly_chart(fig)
 
-    # Título de la aplicación
+
+    # --- Gráfico para Millas Recorridas ponderada por Volumen ---
+
     st.title('Distribución de Precio por Kg ponderada por Millas Recorridas')
 
-    # Crear el histograma ponderado
+    # Crear el histograma ponderado con el número óptimo de bins
     fig = px.histogram(df, x='Millas_Recorridas', y='Volumen_Kg', 
                     histfunc='sum', 
-                    nbins=24, 
+                    nbins=optimo_bins_millas,  # Usamos el número óptimo de bins
                     title='Distribución de Precio por Kg ponderada por Millas Recorridas')
+
+    # Ajustar manualmente el inicio del bin
+    bin_size_millas = (df['Millas_Recorridas'].max() - df['Millas_Recorridas'].min()) / optimo_bins_millas
+    fig.update_traces(xbins=dict(
+        start=df['Millas_Recorridas'].min(),  # Inicia desde el valor mínimo de Millas Recorridas
+        end=df['Millas_Recorridas'].max(),  # Termina en el valor máximo de Millas Recorridas
+        size=bin_size_millas  # Tamaño del bin ajustado
+    ))
 
     # Actualizar etiquetas del gráfico
     fig.update_layout(xaxis_title='Millas Recorridas', 
@@ -441,28 +540,6 @@ def display():
     st.write("### Vista previa de los datos")
     st.write(df_.head())
     
-    # Crear una tabla de frecuencias ponderada
-    hist_data = df_.groupby('HFloat_Faena').apply(lambda x: (x['Volumen_Kg'] * len(x)).sum())
-    hist_data = hist_data.reset_index(name='Volumen_Total')
-
-    # Graficar la distribución de las faenas por hora del día
-    st.subheader('Distribución de las faenas por Hora del Día')
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.histplot(df_, x='HFloat_Faena', weights='Volumen_Kg', bins=24, kde=True)
-    ax.set_xlabel('Hora del Día')
-    ax.set_ylabel('Distribución de las faenas')
-    ax.set_title('Distribución de las faenas por Hora del Día')
-    st.pyplot(fig)
-
-    # Graficar la distribución de las ventas por hora del día
-    st.subheader('Distribución de las Ventas por Hora del Día')
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.histplot(df_, x='HFloat_Venta', weights='Venta', bins=24, kde=True)
-    ax.set_xlabel('Hora del Día')
-    ax.set_ylabel('Distribución de las Ventas')
-    ax.set_title('Distribución de las Ventas por Hora del Día')
-    st.pyplot(fig)
-
     # Seleccionamos las columnas numéricas
     numeric_columns = df_.select_dtypes(include=['int64', 'float64', 'int32']).columns
 
@@ -475,6 +552,86 @@ def display():
 
     st.write("### Datos normalizados")
     st.write(df_normalized.head())
+
+    # --- Distribución de las faenas ---
+    st.subheader('Distribución de las Faenas por Hora del Día')
+
+    # Radio button para seleccionar el método de bins para Faenas
+    metodo_faenas = st.radio(
+        "Selecciona el método para calcular el número de bins en las faenas:",
+        ("Sturges", "Freedman-Diaconis"),
+        key="faenas_bins"
+    )
+
+    # Mostrar la fórmula dependiendo del método seleccionado
+    if metodo_faenas == "Sturges":
+        st.latex(r'''
+            \text{Número de bins} = \lceil \log_2(n) + 1 \rceil
+        ''')
+    else:
+        st.latex(r'''
+            \text{Tamaño del bin} = \frac{2 \times IQR}{n^{1/3}}
+        ''')
+
+    # Calcular los bins para la distribución de faenas
+    optimo_bins_faena = calcular_bins(df['HFloat_Faena'], metodo_faenas)
+
+    # Crear el histograma interactivo con Plotly
+    fig_faenas = px.histogram(df, x='HFloat_Faena', y='Volumen_Kg', 
+                            nbins=optimo_bins_faena, 
+                            title='Distribución de las Faenas por Hora del Día',
+                            labels={'HFloat_Faena': 'Hora del Día', 'Volumen_Kg': 'Distribución de las Faenas'},
+                            marginal="rug")
+
+    # Actualizar el diseño del gráfico
+    fig_faenas.update_layout(
+        xaxis_title='Hora del Día',
+        yaxis_title='Distribución de las Faenas',
+        bargap=0.1
+    )
+
+    # Mostrar el gráfico interactivo en Streamlit
+    st.plotly_chart(fig_faenas)
+
+    # --- Distribución de las ventas ---
+    st.subheader('Distribución de las Ventas por Hora del Día')
+
+    # Radio button para seleccionar el método de bins para Ventas
+    metodo_ventas = st.radio(
+        "Selecciona el método para calcular el número de bins en las ventas:",
+        ("Sturges", "Freedman-Diaconis"),
+        key="ventas_bins"
+    )
+
+    # Mostrar la fórmula dependiendo del método seleccionado
+    if metodo_ventas == "Sturges":
+        st.latex(r'''
+            \text{Número de bins} = \lceil \log_2(n) + 1 \rceil
+        ''')
+    else:
+        st.latex(r'''
+            \text{Tamaño del bin} = \frac{2 \times IQR}{n^{1/3}}
+        ''')
+
+    # Calcular los bins para la distribución de ventas
+    optimo_bins_venta = calcular_bins(df['HFloat_Venta'], metodo_ventas)
+
+    # Crear el histograma interactivo con Plotly
+    fig_ventas = px.histogram(df, x='HFloat_Venta', y='Venta', 
+                            nbins=optimo_bins_venta, 
+                            title='Distribución de las Ventas por Hora del Día',
+                            labels={'HFloat_Venta': 'Hora del Día', 'Venta': 'Distribución de las Ventas'},
+                            marginal="rug")
+
+    # Actualizar el diseño del gráfico
+    fig_ventas.update_layout(
+        xaxis_title='Hora del Día',
+        yaxis_title='Distribución de las Ventas',
+        bargap=0.1
+    )
+
+    # Mostrar el gráfico interactivo en Streamlit
+    st.plotly_chart(fig_ventas)
 
     # Matriz de Correlación
     st.write("### Matriz de Correlación entre Variables")
@@ -509,5 +666,3 @@ def display():
         )
     else:
         st.warning("Por favor, selecciona al menos una variable para mostrar la matriz de correlación.")
-
- 
