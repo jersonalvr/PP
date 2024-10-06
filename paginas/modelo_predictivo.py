@@ -196,6 +196,9 @@ def display():
                                yaxis_title='Puntuación R²',
                                yaxis=dict(range=[0,1]))
     st.plotly_chart(fig_learning, use_container_width=True)
+    
+    # Cargar la clave de RapidAPI desde los secretos de Streamlit
+    rapidapi_key = st.secrets["RAPIDAPI"]["key"]
 
     # Función para generar la predicción basada en la entrada del usuario
     def generar_respuesta_rapidapi(prediccion, user_inputs):
@@ -231,7 +234,7 @@ def display():
             "temperature": 0.7
         }
         headers = {
-            "x-rapidapi-key": os.getenv('RAPIDAPI_KEY'),
+            "x-rapidapi-key": rapidapi_key,
             "x-rapidapi-host": "cheapest-gpt-4-turbo-gpt-4-vision-chatgpt-openai-ai-api.p.rapidapi.com",
             "Content-Type": "application/json"
         }
