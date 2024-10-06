@@ -1,7 +1,7 @@
+import os
+import requests
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 import streamlit as st
 import folium
 from streamlit_folium import folium_static
@@ -9,7 +9,6 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import learning_curve
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -33,20 +32,26 @@ def display():
         end_hour = 12 if end_hour == 0 else end_hour
         return f"{start_hour:02d} - {end_hour:02d} {period}"
 
-    # Aplicar la función para categorizar horas en 'Inicio_Faena' y 'Inicio_Venta'
+    # Aplicar la función para categorizar horas en 'Hora_Faena'
     df['Hora_Faena'] = df['Inicio_Faena'].dt.hour.apply(categorize_hour)
 
     # Crear la columna 'Mes_Faena' y mapear los meses a abreviaturas
-    meses = {1: 'ENE', 2: 'FEB', 3: 'MAR', 4: 'ABR', 5: 'MAY', 6: 'JUN', 7: 'JUL', 8: 'AGO', 9: 'SEP', 10: 'OCT', 11: 'NOV', 12: 'DIC'}
+    meses = {1: 'ENE', 2: 'FEB', 3: 'MAR', 4: 'ABR', 5: 'MAY', 6: 'JUN', 
+             7: 'JUL', 8: 'AGO', 9: 'SEP', 10: 'OCT', 11: 'NOV', 12: 'DIC'}
     df['Mes_Faena'] = df['Inicio_Faena'].dt.month.map(meses)
 
     # Crear rangos para 'Precio_Kg' y 'Talla_cm'
     bins_precio = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
-    labels_precio = ["S/ (0 - 5)", "S/ (5 - 10)", "S/ (10 - 15)", "S/ (15 - 20)", "S/ (20 - 25)", "S/ (25 - 30)", "S/ (30 - 35)", "S/ (35 - 40)", "S/ (40 - 45)", "S/ (45 - 50)", "S/ (50 - 55)"]
+    labels_precio = ["S/ (0 - 5)", "S/ (5 - 10)", "S/ (10 - 15)", "S/ (15 - 20)", 
+                     "S/ (20 - 25)", "S/ (25 - 30)", "S/ (30 - 35)", "S/ (35 - 40)", 
+                     "S/ (40 - 45)", "S/ (45 - 50)", "S/ (50 - 55)"]
     df['Precio_Float'] = pd.cut(df['Precio_Kg'], bins=bins_precio, labels=labels_precio, right=False)
 
     bins_talla = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
-    labels_talla = ["(10 - 20) cm", "(20 - 30) cm", "(30 - 40) cm", "(40 - 50) cm", "(50 - 60) cm", "(60 - 70) cm", "(70 - 80) cm", "(80 - 90) cm", "(90 - 100) cm", "(100 - 110) cm", "(110 - 120) cm", "(120 - 130) cm", "(130 - 140) cm", "(140 - 150) cm"]
+    labels_talla = ["(10 - 20) cm", "(20 - 30) cm", "(30 - 40) cm", "(40 - 50) cm", 
+                   "(50 - 60) cm", "(60 - 70) cm", "(70 - 80) cm", "(80 - 90) cm", 
+                   "(90 - 100) cm", "(100 - 110) cm", "(110 - 120) cm", "(120 - 130) cm", 
+                   "(130 - 140) cm", "(140 - 150) cm"]
     df['Talla_Float'] = pd.cut(df['Talla_cm'], bins=bins_talla, labels=labels_talla, right=False)
 
     # Selección del enfoque para las predicciones
@@ -72,18 +77,28 @@ def display():
 
     # Mostrar el mapa centrado en la ubicación de las capturas
     st.subheader(f"Mapa de capturas para la selección: {seleccion}")
-    mapa = folium.Map(location=[df_seleccion['Origen_Latitud'].mean(), df_seleccion['Origen_Longuitud'].mean()], zoom_start=6)
-    for idx, row in df_seleccion.iterrows():
-        folium.Marker(
-            location=[row['Origen_Latitud'], row['Origen_Longuitud']],
-            popup=row['Especie'] if opcion == "Especie" else row['Embarcacion']
-        ).add_to(mapa)
-    folium_static(mapa)
+    if not df_seleccion.empty:
+        mapa = folium.Map(location=[df_seleccion['Origen_Latitud'].mean(), df_seleccion['Origen_Longitud'].mean()], zoom_start=6)
+        for idx, row in df_seleccion.iterrows():
+            folium.Marker(
+                location=[row['Origen_Latitud'], row['Origen_Longitud']],
+                popup=row['Especie'] if opcion == "Especie" else row['Embarcacion']
+            ).add_to(mapa)
+        folium_static(mapa)
+    else:
+        st.warning("No hay datos disponibles para la selección realizada.")
 
     # Definir las características y la variable objetivo
-    selected_columns = ['Caballos_Motor', 'Millas_Recorridas', 'Precio_Kg', 'Talla_cm', 'Costo_Combustible', 'Ganancia',
-                        'Temperatura_Agua_°C', 'Profundidad_m', 'Salinidad_PSU', 'Velocidad_Viento_m_s',
-                        'Corriente_Marina_m_s', 'CPUE']
+    selected_columns = ['Caballos_Motor', 'Millas_Recorridas', 'Precio_Kg', 'Talla_cm', 
+                       'Costo_Combustible', 'Ganancia', 'Temperatura_Agua_°C', 
+                       'Profundidad_m', 'Salinidad_PSU', 'Velocidad_Viento_m_s',
+                       'Corriente_Marina_m_s', 'CPUE']
+
+    # Verificar si las columnas existen en el DataFrame
+    missing_columns = [col for col in selected_columns + ['Volumen_Kg'] if col not in df.columns]
+    if missing_columns:
+        st.error(f"Faltan las siguientes columnas en los datos: {missing_columns}")
+        return
 
     # Normalizar los datos
     scaler = MinMaxScaler()
@@ -97,6 +112,23 @@ def display():
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
     modelo_rf = RandomForestRegressor(n_estimators=100, random_state=42)
     modelo_rf.fit(X_train, y_train)
+
+    # Función generar_prediccion
+    def generar_prediccion(caballos_motor, millas_recorridas, precio_kg, talla_cm, 
+                       costo_combustible, ganancia, temperatura_agua, profundidad, 
+                       salinidad, velocidad_viento, corriente_marina, cpue):
+        # Crear un nuevo conjunto de datos con los valores ingresados
+        nuevos_datos = np.array([[caballos_motor, millas_recorridas, precio_kg, talla_cm, 
+                                costo_combustible, ganancia, temperatura_agua, profundidad, 
+                                salinidad, velocidad_viento, corriente_marina, cpue]])
+
+        # Normalizar los nuevos datos usando el scaler
+        nuevos_datos_normalizados = scaler.transform(nuevos_datos)
+
+        # Predicción del modelo con los datos ingresados
+        prediccion = modelo_rf.predict(nuevos_datos_normalizados)
+        
+        return prediccion[0]
 
     # Gráfico Interactivo: Curvas de Entrenamiento y Validación
     st.write("### Evaluación del Modelo")
@@ -128,12 +160,12 @@ def display():
     """)
     # Gráfico de Valores Reales vs Predichos
     fig_real_vs_pred = px.scatter(x=y_val, y=y_pred, labels={'x': 'Valores Reales', 'y': 'Valores Predichos'},
-                                title='Valores Reales vs Predichos')
+                                  title='Valores Reales vs Predichos')
     fig_real_vs_pred.add_shape(type="line",
-                            x0=y_val.min(), y0=y_val.min(),
-                            x1=y_val.max(), y1=y_val.max(),
-                            line=dict(color="Red", dash="dash"))
-    st.plotly_chart(fig_real_vs_pred)
+                               x0=y_val.min(), y0=y_val.min(),
+                               x1=y_val.max(), y1=y_val.max(),
+                               line=dict(color="Red", dash="dash"))
+    st.plotly_chart(fig_real_vs_pred, use_container_width=True)
 
     # Gráfico de Curvas de Aprendizaje
     st.write("#### Curvas de Aprendizaje")
@@ -160,17 +192,70 @@ def display():
     fig_learning.add_trace(go.Scatter(x=n_estimators_list, y=train_scores, mode='lines+markers', name='Entrenamiento'))
     fig_learning.add_trace(go.Scatter(x=n_estimators_list, y=val_scores, mode='lines+markers', name='Validación'))
     fig_learning.update_layout(title='Curvas de Aprendizaje',
-                            xaxis_title='Número de Árboles (n_estimators)',
-                            yaxis_title='Puntuación R²',
-                            yaxis=dict(range=[0,1]))
-    st.plotly_chart(fig_learning)
+                               xaxis_title='Número de Árboles (n_estimators)',
+                               yaxis_title='Puntuación R²',
+                               yaxis=dict(range=[0,1]))
+    st.plotly_chart(fig_learning, use_container_width=True)
 
-    # Predicción con el formulario
-    st.subheader("Formulario para predicciones personalizadas")
+    # Función para generar la predicción basada en la entrada del usuario
+    def generar_respuesta_rapidapi(prediccion, user_inputs):
+        url = "https://cheapest-gpt-4-turbo-gpt-4-vision-chatgpt-openai-ai-api.p.rapidapi.com/v1/chat/completions"
+        
+        prompt = f"""
+        El modelo predice un volumen capturado de {prediccion:.2f} kg basado en los siguientes datos:
+        - Caballos de Motor: {user_inputs['caballos_motor']}
+        - Millas Recorridas: {user_inputs['millas_recorridas']}
+        - Precio por Kg: {user_inputs['precio_kg']}
+        - Talla del Pescado: {user_inputs['talla_cm']}
+        - Costo de Combustible: {user_inputs['costo_combustible']}
+        - Ganancia: {user_inputs['ganancia']}
+        - Temperatura del Agua: {user_inputs['temperatura_agua']} °C
+        - Profundidad del Mar: {user_inputs['profundidad']} metros
+        - Salinidad: {user_inputs['salinidad']} PSU
+        - Velocidad del Viento: {user_inputs['velocidad_viento']} m/s
+        - Corriente Marina: {user_inputs['corriente_marina']} m/s
+        - Índice CPUE: {user_inputs['cpue']}
+
+        Explica en lenguaje simple cómo estos factores pueden influir en el volumen de captura predicho.
+        """
+
+        payload = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "model": "gpt-4o",
+            "max_tokens": 1000,
+            "temperature": 0.7
+        }
+        headers = {
+            "x-rapidapi-key": os.getenv('RAPIDAPI_KEY'),
+            "x-rapidapi-host": "cheapest-gpt-4-turbo-gpt-4-vision-chatgpt-openai-ai-api.p.rapidapi.com",
+            "Content-Type": "application/json"
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            result = response.json()
+            return result['choices'][0]['message']['content'].strip()
+        except requests.RequestException as e:
+            st.error(f"Error al comunicarse con la API de RapidAPI: {e}")
+            return ""
+        except Exception as e:
+            st.error(f"Error inesperado: {e}")
+            return ""
+
+    # Interfaz del GPT en Streamlit
+    st.header("Formulario para Predicción de Volumen Capturado con Explicación")
+
+    # Campos de entrada para el usuario
     caballos_motor = st.slider("Caballos de Motor", 10, 50, 20)
     millas_recorridas = st.slider("Millas Recorridas", 1, 100, 10)
-    precio_kg = st.slider("Precio por Kg", 1.0, 50.0, 15.0)
-    talla_cm = st.slider("Talla del Pescado (cm)", 10, 100, 30)
+    precio_kg = st.slider("Precio por Kg", 1.0, 55.0, 15.0)  # Ajustado para coincidir con bins_precio
+    talla_cm = st.slider("Talla del Pescado (cm)", 10, 150, 30)  # Ajustado para coincidir con bins_talla
     costo_combustible = st.slider("Costo de Combustible (S/.)", 10.0, 1000.0, 100.0)
     ganancia = st.slider("Ganancia (S/.)", 50.0, 5000.0, 500.0)
     temperatura_agua = st.slider("Temperatura del Agua (°C)", 15.0, 30.0, 25.0)
@@ -180,30 +265,79 @@ def display():
     corriente_marina = st.slider("Corriente Marina (m/s)", 0.1, 2.0, 0.5)
     cpue = st.slider("Índice CPUE", 0.1, 5.0, 1.0)
 
-    # Crear un nuevo conjunto de datos con los valores ingresados
-    nuevos_datos = np.array([[caballos_motor, millas_recorridas, precio_kg, talla_cm, costo_combustible, ganancia, 
-                            temperatura_agua, profundidad, salinidad, velocidad_viento, corriente_marina, cpue]])
+    # Variable de control para mostrar el gráfico
+    mostrar_grafico = False
 
-    # Normalizar los nuevos datos
-    nuevos_datos_normalizados = scaler.transform(nuevos_datos)
+    # Cuando el usuario envía los datos
+    if st.button("Generar Predicción y Explicación"):
+        # Almacenar las entradas del usuario en un diccionario
+        user_inputs = {
+            'caballos_motor': caballos_motor,
+            'millas_recorridas': millas_recorridas,
+            'precio_kg': precio_kg,
+            'talla_cm': talla_cm,
+            'costo_combustible': costo_combustible,
+            'ganancia': ganancia,
+            'temperatura_agua': temperatura_agua,
+            'profundidad': profundidad,
+            'salinidad': salinidad,
+            'velocidad_viento': velocidad_viento,
+            'corriente_marina': corriente_marina,
+            'cpue': cpue
+        }
+        
+        # Generar la predicción usando el modelo
+        prediccion = generar_prediccion(caballos_motor, millas_recorridas, precio_kg, talla_cm, 
+                                        costo_combustible, ganancia, temperatura_agua, profundidad, 
+                                        salinidad, velocidad_viento, corriente_marina, cpue)
 
-    # Predicción del modelo con los datos ingresados
-    prediccion_nueva = modelo_rf.predict(nuevos_datos_normalizados)
-    st.write(f"**Predicción del Volumen Capturado (Kg) basado en los datos ingresados:** {prediccion_nueva[0]:.2f}")
+        # Mostrar predicción de forma más llamativa
+        st.markdown(f"""
+            <div style="text-align: center; padding: 20px; 
+                        background-color: rgba(0, 0, 0, 0); 
+                        border-radius: 10px; 
+                        border: 2px solid #eb5952;">
+                <h3 style="color: #93c7fa;">📈 Predicción del Volumen Capturado (Kg) basado en los datos ingresados:</h3>
+                <p style="font-size: 28px; font-weight: bold; 
+                        color: #ec5a53;">{prediccion:.2f} Kg</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Usar API para generar una respuesta explicativa basada en los datos
+        explicacion = generar_respuesta_rapidapi(prediccion, user_inputs)
+        
+        # Añadir un espacio antes de mostrar la explicación
+        st.markdown("<br>", unsafe_allow_html=True)
 
-    # Gráfico de importancia de características
-    importances = modelo_rf.feature_importances_
-    indices = X.columns
-    feature_importances = pd.Series(importances, index=indices).sort_values(ascending=False)
+        # Mostrar la respuesta generada por API
+        if explicacion:
+            with st.container():
+                st.markdown("### Explicación")
+                st.markdown(f"{explicacion}")
+        
+        # Cambiar la variable de control para mostrar el gráfico
+        mostrar_grafico = True
 
-    st.subheader(f'Importancia de Características - {seleccion} ({opcion})')
-    st.markdown("""
-    La importancia de características nos ayuda a entender cuáles variables son más influyentes en la predicción del volumen de captura. Estas son como los ingredientes principales de una receta, donde algunos tienen un mayor impacto en el resultado final.
-    """)
-    fig = px.bar(feature_importances, x=feature_importances.index, y=feature_importances.values,
-                title="Importancia de las Características para Predicción")
-    st.plotly_chart(fig)
+    # Mostrar el gráfico solo si se ha generado la predicción y la explicación
+    if mostrar_grafico:
+        # Gráfico de importancia de características
+        importances = modelo_rf.feature_importances_
+        indices = X.columns
+        feature_importances = pd.Series(importances, index=indices).sort_values(ascending=False)
 
-    # Mostrar la característica más influyente
-    caracteristica_principal = feature_importances.idxmax()
-    st.markdown(f"**La característica más influyente es:** `{caracteristica_principal}`, lo que indica que esta variable tiene el mayor impacto en la predicción del volumen de captura.")
+        st.subheader('Importancia de Características')
+        st.markdown("""
+        La importancia de características nos ayuda a entender cuáles variables son más influyentes en la predicción del volumen de captura.
+        """)
+        fig = px.bar(feature_importances, x=feature_importances.index, y=feature_importances.values,
+                    title="Importancia de las Características para Predicción",
+                    labels={'x': 'Características', 'y': 'Importancia'})
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Mostrar la característica más influyente
+        caracteristica_principal = feature_importances.idxmax()
+        st.markdown(f"**La característica más influyente es:** `{caracteristica_principal}`, lo que indica que esta variable tiene el mayor impacto en la predicción del volumen de captura.")
+
+# Ejecutar la función display si el script es el principal
+if __name__ == "__main__":
+    display()

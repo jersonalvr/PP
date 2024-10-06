@@ -2,7 +2,6 @@
 import streamlit as st
 import pandas as pd  
 import plotly.express as px
-import seaborn as sns
 import folium
 import numpy as np
 from folium.plugins import MarkerCluster
@@ -113,7 +112,7 @@ def display():
         if not df_filtrado.empty:
             # Calcular la media de latitud y longitud para centrar el mapa
             media_lat = df_filtrado['Origen_Latitud'].mean()
-            media_lon = df_filtrado['Origen_Longuitud'].mean()  # Asegúrate de que el nombre de la columna es correcto
+            media_lon = df_filtrado['Origen_Longitud'].mean()  # Asegúrate de que el nombre de la columna es correcto
 
             # Crear el mapa centrado en la ubicación media
             mapa = folium.Map(location=[media_lat, media_lon], zoom_start=6)
@@ -124,7 +123,7 @@ def display():
             # Añadir marcadores al cluster
             for idx, row in df_filtrado.iterrows():
                 folium.Marker(
-                    location=[row['Origen_Latitud'], row['Origen_Longuitud']],
+                    location=[row['Origen_Latitud'], row['Origen_Longitud']],
                     popup=row['Origen']
                 ).add_to(marker_cluster)
 
