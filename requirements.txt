@@ -89,4 +89,4 @@ xgboost==2.0.3
 xyzservices==2024.4.0
 zope.interface==6.3
 requests==2.31.0
-imbalanced-learn==0.12.4
+imbalanced-learn==0.12.2
