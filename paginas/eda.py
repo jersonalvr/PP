@@ -33,6 +33,44 @@ def display():
     Comencemos visualizando algunos gráficos estadisticos referentes a la actividad pesquera de la zona
     """)
 
+    # Asegúrate de que 'Inicio_Faena' esté en formato datetime
+    df['Inicio_Faena'] = pd.to_datetime(df['Inicio_Faena'])
+
+    # Ordenar el dataframe por 'Inicio_Faena' para una mejor visualización
+    df = df.sort_values('Inicio_Faena')
+
+    # Crear un selector múltiple de especies
+    especies_disponibles = df['Especie'].unique()
+    especies_seleccionadas = st.multiselect(
+        'Selecciona las especies que deseas visualizar',
+        options=especies_disponibles,
+        default=especies_disponibles
+    )
+
+    # Filtrar el dataframe según las especies seleccionadas
+    df_filtrado = df[df['Especie'].isin(especies_seleccionadas)]
+
+    # Crear el gráfico de líneas con las especies seleccionadas
+    st.write("### Volumen de Kg por Especie a lo largo del tiempo")
+    fig = px.line(
+        df_filtrado, 
+        x='Inicio_Faena', 
+        y='Volumen_Kg', 
+        color='Especie',
+        title='Volumen de Kg capturado por Especie a lo largo del tiempo',
+        labels={
+            'Inicio_Faena': 'Fecha de Inicio de Faena',
+            'Volumen_Kg': 'Volumen (Kg)',
+            'Especie': 'Especie'
+        }
+    )
+
+    # Ajustar el formato de la fecha en el eje X si es necesario
+    fig.update_layout(xaxis=dict(tickformat="%Y-%m-%d"))
+
+    # Mostrar el gráfico en Streamlit
+    st.plotly_chart(fig, use_container_width=True)
+
     # Agrupar por especie y aparejo, sumando los kilos
     df_agrupado_kilos = df.groupby(['Especie', 'Aparejo'])['Volumen_Kg'].sum().unstack()
 
@@ -399,55 +437,6 @@ def display():
     # Mostrar el gráfico en Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
-    # Convertir la columna 'Inicio_Faena' y 'Fecha_Venta' a datetime
-    df['Inicio_Faena'] = pd.to_datetime(df['Inicio_Faena'], format='%d %m %Y %H:%M')
-    df['Inicio_Venta'] = pd.to_datetime(df['Inicio_Venta'], format='%d %m %Y %H:%M')
-
-    # Transformar las columnas 'Inicio_Faena' y 'Inicio_Venta' en valores flotantes (hora + minutos/60)
-    df['HFloat_Faena'] = df['Inicio_Faena'].dt.hour + df['Inicio_Faena'].dt.minute / 60
-    df['HFloat_Venta'] = df['Inicio_Venta'].dt.hour + df['Inicio_Venta'].dt.minute / 60
-
-    # Función para categorizar la hora en intervalos de 2 horas considerando A.M. y P.M.
-    def categorize_hour(hour):
-        period = "A.M." if hour < 12 else "P.M."
-        hour_12 = hour % 12
-        hour_12 = 12 if hour_12 == 0 else hour_12
-        start_hour = hour_12
-        end_hour = (hour_12 + 2) % 12
-        end_hour = 12 if end_hour == 0 else end_hour
-        return f"{start_hour:02d} - {end_hour:02d} {period}"
-
-    # Aplicar la función para categorizar las horas en 'Inicio_Faena' y 'Inicio_Venta'
-    df['Hora_Faena'] = df['Inicio_Faena'].dt.hour.apply(categorize_hour)
-
-    # Extraer el mes de las columnas 'Inicio_Faena' y 'Inicio_Venta'
-    df['Mes_Faena'] = df['Inicio_Faena'].dt.month
-
-    # Crear un diccionario para mapear los números de los meses a nombres abreviados
-    meses = {
-        1: 'ENE', 2: 'FEB', 3: 'MAR', 4: 'ABR', 5: 'MAY', 6: 'JUN',
-        7: 'JUL', 8: 'AGO', 9: 'SEP', 10: 'OCT', 11: 'NOV', 12: 'DIC'
-    }
-
-    # Crear una nueva columna 'Mes_Faena' basada en el mes de 'Inicio_Faena' y usar el diccionario de mapeo
-    df['Mes_Float'] = df['Inicio_Faena'].dt.month.map(meses)
-
-    # Definir los límites de los rangos
-    bins_precio = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
-    # Definir las etiquetas correspondientes para cada rango
-    labels_precio = ["S/ (0 - 5)", "S/ (5 - 10)", "S/ (10 - 15)", "S/ (15 - 20)", "S/ (20 - 25)",
-            "S/ (25 - 30)", "S/ (30 - 35)", "S/ (35 - 40)", "S/ (40 - 45)", "S/ (45 - 50)", "S/ (50 - 55)"]
-
-    # Crear la nueva columna 'Precio_Float'
-    df['Precio_Float'] = pd.cut(df['Precio_Kg'], bins=bins_precio, labels=labels_precio, right=False)
-
-    # Definir los límites de los rangos
-    bins_talla = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
-    # Definir las etiquetas correspondientes para cada rango
-    labels_talla = ["(10 - 20) cm", "(20 - 30) cm", "(30 - 40) cm", "(40 - 50) cm",
-                    "(50 - 60) cm", "(60 - 70) cm", "(70 - 80) cm", "(80 - 90) cm", "(90 - 100) cm",
-                    "(100 - 110) cm", "(110 - 120) cm", "(120 - 130) cm", "(130 - 140) cm", "(140 - 150) cm"]
-
     # Gráficos Estadísticos Descriptivos
     st.write("### Análisis Estadístico Descriptivo")
 
@@ -529,28 +518,9 @@ def display():
     # Mostrar el gráfico
     st.plotly_chart(fig_scatter, use_container_width=True)
 
-    # Crear la nueva columna 'Talla_Float'
-    df['Talla_Float'] = pd.cut(df['Talla_cm'], bins=bins_talla, labels=labels_talla, right=False)
-
-    # Crear un nuevo DataFrame eliminando las columnas datatime
-    df_ = df.drop(columns=['Inicio_Faena', 'Inicio_Venta'])
-
-    # Vista previa de los datos con nuevas columnas
-    st.write("### Vista previa de los datos")
-    st.write(df_.head())
-    
-    # Seleccionamos las columnas numéricas
-    numeric_columns = df_.select_dtypes(include=['int64', 'float64', 'int32']).columns
-
-    # Crear el escalador
-    scaler = MinMaxScaler()
-
-    # Aplicar la normalización
-    df_normalized = df_.copy()
-    df_normalized[numeric_columns] = scaler.fit_transform(df_[numeric_columns])
-
-    st.write("### Datos normalizados")
-    st.write(df_normalized.head())
+    # Transformar las columnas 'Inicio_Faena' y 'Inicio_Venta' en valores flotantes (hora + minutos/60)
+    df['HFloat_Faena'] = df['Inicio_Faena'].dt.hour + df['Inicio_Faena'].dt.minute / 60
+    df['HFloat_Venta'] = df['Inicio_Venta'].dt.hour + df['Inicio_Venta'].dt.minute / 60
 
     # --- Distribución de las faenas ---
     st.subheader('Distribución de las Faenas por Hora del Día')
@@ -631,37 +601,3 @@ def display():
 
     # Mostrar el gráfico interactivo en Streamlit
     st.plotly_chart(fig_ventas, use_container_width=True)
-
-    # Matriz de Correlación
-    st.write("### Matriz de Correlación entre Variables")
-    st.markdown("Visualiza las correlaciones lineales entre las variables numéricas seleccionadas.")
-
-    # Selección de variables para la matriz de correlación
-    corr_variables = st.multiselect(
-        "Selecciona las variables para incluir en la matriz de correlación",
-        options=numerical_columns,
-        default=numerical_columns
-    )
-
-    # Calcular la matriz de correlación
-    if corr_variables:
-        corr_matrix = df[corr_variables].corr(method='pearson')
-        
-        # Crear el mapa de calor interactivo usando Plotly
-        fig_corr = px.imshow(corr_matrix,
-                            text_auto=True,
-                            aspect="auto",
-                            color_continuous_scale='RdBu_r',
-                            title='Matriz de Correlación de Pearson')
-        st.plotly_chart(fig_corr, use_container_width=True)
-        
-        # Opcional: Descargar la matriz de correlación
-        csv_corr = corr_matrix.to_csv(index=True).encode('utf-8')
-        st.download_button(
-            label="Descargar Matriz de Correlación como CSV",
-            data=csv_corr,
-            file_name='matriz_correlacion.csv',
-            mime='text/csv',
-        )
-    else:
-        st.warning("Por favor, selecciona al menos una variable para mostrar la matriz de correlación.")
