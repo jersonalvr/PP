@@ -407,7 +407,7 @@ def display():
         }
 
         headers = {
-            "x-rapidapi-key": "rapidapi_key",
+            "x-rapidapi-key": rapidapi_key,
             "x-rapidapi-host": "cheapest-gpt-4-turbo-gpt-4-vision-chatgpt-openai-ai-api.p.rapidapi.com",
             "Content-Type": "application/json"
         }
