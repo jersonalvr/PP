@@ -402,7 +402,7 @@ def display():
                 }
             ],
             "model": "gpt-4",
-            "max_tokens": 500,
+            "max_tokens": 1500,
             "temperature": 0.7
         }
 
