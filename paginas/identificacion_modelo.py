@@ -375,8 +375,7 @@ def display():
     rapidapi_key = st.secrets["RAPIDAPI"]["key"]
     
     def generar_respuesta_rapidapi(prediccion, X_test, problem_type, model_name, metrics):
-        import json
-
+        
         # Construir el prompt con la predicción, los datos de entrada del usuario y el contexto del proyecto
         if problem_type == 'regression':
             prompt = f"""Como un experto en ciencia de datos especializado en el análisis de la pesca artesanal en Áncash, explica los resultados del modelo de regresión {model_name}. 
