@@ -370,7 +370,10 @@ def display():
         model.fit(X_train, y_train)
         # Predecir en el conjunto de prueba
         y_pred = model.predict(X_test)
-
+        
+    # Cargar la clave de RapidAPI desde los secretos de Streamlit
+    rapidapi_key = st.secrets["RAPIDAPI"]["key"]
+    
     def generar_respuesta_rapidapi(prediccion, X_test, problem_type, model_name, metrics):
         import json
 
